@@ -1,0 +1,21 @@
+{
+    "name": "hoangnh283/solana",
+    "autoload": {
+        "psr-4": {
+            "Hoangnh283\\Solana\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+            
+        }
+    },
+    "authors": [
+        {
+            "name": "HoangNH283",
+            "email": "chimnhokhonglo@gmail.com"
+        }
+    ],
+    "require": {}
+}

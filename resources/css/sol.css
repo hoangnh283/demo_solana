@@ -1,0 +1,57 @@
+.container, .container-lg, .container-md, .container-sm, .container-xl {
+    max-width: 1500px;
+}
+
+.active-user {
+    background-color: #f0f8ff; /* Màu nền cho thẻ đang được chọn */
+    border-left: 5px solid #007bff; /* Đường viền bên trái để làm nổi bật */
+}
+
+#historyTableContainer {
+    max-height: 350px; /* Chiều cao tối đa của bảng */
+    overflow-y: auto;  /* Kích hoạt thanh cuộn dọc */
+}
+
+/* #historyTable {
+    width: 100%;
+    border-collapse: collapse;
+} */
+
+#historyTable thead th {
+    position: -webkit-sticky; /* Để tiêu đề cố định trong Webkit browsers */
+    position: sticky; /* Tiêu đề bảng cố định khi cuộn */
+    top: 0;
+    background-color: #f8f9fa; /* Màu nền để tiêu đề nổi bật */
+    z-index: 1; /* Đảm bảo tiêu đề nằm trên các hàng */
+    border: none;
+}
+
+#historyTable tbody tr {
+    border-bottom: 1px solid #dee2e6;
+    cursor: pointer;
+}
+
+#historyTable th, #historyTable td {
+    padding: 8px;
+    text-align: left;
+}
+
+.collapse-content {
+    display: none;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+}
+.collapse td div{
+    max-width: 520px;
+    white-space: nowrap; /* Không cho phép xuống dòng */
+    overflow: hidden; /* Ẩn phần văn bản vượt quá */
+}
+.user-item{
+    cursor: pointer;
+}
+
+
+
+
+
