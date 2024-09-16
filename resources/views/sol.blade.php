@@ -62,9 +62,11 @@
                         <div id="message3" class="mt-3"></div>
                         <div id="userAddress"></div>
                         <div id="balanceInfo" class="mt-3"></div>
+                        <div class='buttons d-none'>
                         <button id="depositBtn" class="btn ">Deposit</button>
                         <button id="withdrawBtn" class="btn ">Withdraw</button>
                         <button id="historyBtn" class="btn">History</button>
+                        </div>
                         <!-- Deposit Form -->
                         <div id="depositForm" class="d-none mt-3">
                             <h5>Deposit Form</h5>
@@ -80,6 +82,10 @@
                             <h5>Withdraw Form</h5>
                             <form id="withdrawFormContent">
                                 @csrf
+                                <div class="form-group">
+                                    <label for="withdrawToken">Token:</label>
+                                    <select name="token" id="withdrawToken" required class="form-control"></select>
+                                </div>
                                 <div class="form-group">
                                     <label for="withdrawAddress">Address:</label>
                                     <input type="text" id="withdrawAddress" name="address" class="form-control" required>
@@ -140,7 +146,7 @@
             $('#createUserForm1').on('submit', function(e) {
                 e.preventDefault();
                 $.ajax({
-                    url: '/create-user',
+                    url: 'create-user',
                     type: 'POST',
                     data: $(this).serialize(),
                     success: function(response) {
@@ -166,7 +172,7 @@
             // Fetch user list
             function fetchUserList() {
                 $.ajax({
-                    url: '/users',
+                    url: 'users',
                     type: 'GET',
                     success: function(response) {
                         var userListHtml = '';
@@ -203,6 +209,7 @@
                     return;
                 }
                 getBalance(userId, address);
+                $('.buttons').removeClass('d-none')
                 $('#withdrawForm').hide();
                 $('#depositForm').hide();
                 $('#historyForm').hide();
@@ -210,13 +217,23 @@
 
             function getBalance(user_id, address) {
                 $.ajax({
-                    url: '/get-balance',
+                    url: 'get-balance',
                     type: 'POST',
                     data: { user_id: user_id, address: address, _token: $('meta[name="csrf-token"]').attr('content') },
                     success: function(response) {
-                        if (response.balance !== undefined) {
-                            $('#message3').html('<div class="alert alert-info">Balance: ' + response.balance + ' SOL</div>');
-                        } else {
+                        if(Object.keys(response).length !== 0){
+                            current_user.token = []
+                            let html = '<div class="alert alert-info">Balance: '
+                            response.forEach((value) => {
+                                current_user.token.push(value)
+                                html += '<div>'+ value['name']+ ' ' + value['balance'] +'</div>';
+                            });
+                                console.log("🚀 ~ Object.keys ~ current_user:", current_user)
+                            html += '</div>';
+                            $('#message3').html(html);
+                            document.getElementById('withdrawToken').innerHTML = current_user.token.map(token => `<option value="${token.name}" data-decimals="${token.decimals}">${token.name}</option>`).join('');
+
+                        }else{
                             $('#message3').html('<div class="alert alert-danger">Unable to retrieve balance</div>');
                         }
                     },
@@ -268,7 +285,7 @@
             $('#depositFormContent').on('submit', function(e) {
                 e.preventDefault();
                 $.ajax({
-                    url: '/deposit',
+                    url: 'deposit',
                     type: 'POST',
                     data: $(this).serialize(),
                     success: function(response) {
@@ -295,7 +312,9 @@
                 e.preventDefault();
                 var address = $('#withdrawAddress').val().trim();
                 var amount = $('#withdrawAmount').val().trim();
+                var token = $('#withdrawToken').val().trim();
                 var errorMessage = '';
+                const decimals = document.getElementById('withdrawToken').selectedOptions[0].dataset.decimals;
 
                 // Validate address
                 if (address.length !== 44) {
@@ -317,16 +336,27 @@
                 }
                 $('#withdrawSubmitBtn').attr('disabled', true);
                 $('#loader').removeClass('d-none');
+                $.ajaxSetup({
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    }
+                });
                 $.ajax({
-                    url: '/withdraw',
+                    url: 'withdraw',
                     type: 'POST',
                     data: $(this).serialize(),
+                    data: {
+                        address: address,
+                        amount: amount,
+                        token: token,
+                        decimals: decimals,
+                    },
                     success: function(response) {
                         $('#loader').addClass('d-none');
                         if (response.success) {
                             $('#withdrawMessage').html('<div class="alert alert-success">Withdraw success</div>');
                             setTimeout(() => {
-                                getBalance(response.user_id, response.transaction.from_address);
+                                getBalance(response.user_id, current_user.address);
                             }, 1000);
                             
                         } else if (response.errors) {
@@ -350,7 +380,7 @@
             // Handle fetch history
             $('#historyBtn').on('click', function() {
                 $.ajax({
-                    url: '/history',
+                    url: 'history',
                     type: 'POST',
                     data: { address: current_user.address, _token: $('meta[name="csrf-token"]').attr('content') },
                     success: function(response) {
@@ -363,12 +393,12 @@
                                 + '<tbody>';
                         $.each(response.history, function(index, transaction) {
                             // .toString().replace('.', ',')
-                            var amount = parseFloat(Number(transaction.amount).toFixed(8))
+                            var amount = transaction.amount
                             var fee = parseFloat(Number(transaction.fee).toFixed(8))
                             historyHtml += '<tr data-toggle="collapse" data-target="#collapse' + index + '">'
                                         + '<td>' + transaction.type + '</td>'
                                         + '<td> Solana </td>'
-                                        + '<td>' + amount + ' SOL</td>'
+                                        + '<td>' + amount + '</td>'
                                         + '<td>' + transaction.status + '</td>'
                                         + '<td>' + formatDatetime(transaction.block_time) + '</td>'
                                         + '</tr>'
@@ -378,7 +408,7 @@
                                         + '<div><strong>From Address:</strong> ' + transaction.from_address + '</div>'
                                         + '<div><strong>Type:</strong> ' + transaction.type + '</div>'
                                         + '<div><strong>To Address:</strong> ' + transaction.to_address + '</div>'
-                                        + '<div><strong>Amount:</strong> ' + amount + ' SOL</div>'
+                                        + '<div><strong>Amount:</strong> ' + amount + '</div>'
                                         + '<div><strong>Fee:</strong> ' + fee + ' SOL</div>'
                                         + '<div><strong>Network:</strong> Solana </div>'
                                         + '<div><strong>Status:</strong> ' + transaction.status + '</div>'

@@ -79,12 +79,32 @@ class ListenToSolanaDeposit extends Command
                             $getTransaction = $SolanaService->getTransaction($data["params"]["result"]['value']['signature']);
                             if(!empty($getTransaction["result"])){
                                 $lamports = 1000000000;
-                                $postBalances = $getTransaction["result"]["meta"]["postBalances"][1] / $lamports;
-                                $preBalances = $getTransaction["result"]["meta"]["preBalances"][1] / $lamports;
+                                if(count($getTransaction["result"]['meta']['postTokenBalances']) > 0){
+                                    $this->info('address: ' . $getTransaction["result"]['meta']['postTokenBalances'][0]['owner']);
+                                    $userAddressInfo = SolanaAddress::where('address', $getTransaction["result"]['meta']['postTokenBalances'][0]['owner'])->first();
+                                    $postBalances = $getTransaction["result"]['meta']['postTokenBalances'][0]['uiTokenAmount']['amount'] / $lamports;
+                                    $preBalances = $getTransaction["result"]['meta']['preTokenBalances'][0]['uiTokenAmount']['amount'] / $lamports;
+                                    $meta = $getTransaction["result"]['meta'];
+                                    foreach ($meta['postTokenBalances'] as $index => $postBalance) {
+                                        $preBalance = $meta['preTokenBalances'][$index];
+                                        if ($preBalance['uiTokenAmount']['amount'] > $postBalance['uiTokenAmount']['amount']) {
+                                            $fromAddress = $getTransaction["result"]["transaction"]["message"]["accountKeys"][$postBalance['accountIndex']];
+                                        } elseif ($preBalance['uiTokenAmount']['amount'] < $postBalance['uiTokenAmount']['amount']) {
+                                            $toAddress = $getTransaction["result"]["transaction"]["message"]["accountKeys"][$postBalance['accountIndex']];
+                                        }
+                                    }
+                                }else{
+                                    $userAddressInfo = SolanaAddress::where('address', $getTransaction["result"]["transaction"]["message"]["accountKeys"][1])->first();
+                                    $postBalances = $getTransaction["result"]["meta"]["postBalances"][1] / $lamports;
+                                    $preBalances = $getTransaction["result"]["meta"]["preBalances"][1] / $lamports;
+                                    $fromAddress = $getTransaction["result"]["transaction"]["message"]["accountKeys"][0];
+                                    $toAddress = $getTransaction["result"]["transaction"]["message"]["accountKeys"][1];
+                                }
+                                $this->info('from address: ' . $fromAddress);
+                                $this->info('to address: ' . $toAddress);
                                 $amount = $postBalances - $preBalances;
                                 $fee = $getTransaction["result"]["meta"]["fee"] / $lamports;
-                                $fromAddress = $getTransaction["result"]["transaction"]["message"]["accountKeys"][0];
-                                $toAddress = $getTransaction["result"]["transaction"]["message"]["accountKeys"][1];
+                                
                                 $transaction = SolanaTransaction::create([
                                     'from_address' => $fromAddress,
                                     'to_address' => $toAddress,
@@ -96,8 +116,6 @@ class ListenToSolanaDeposit extends Command
                                     'block_time' => date('Y-m-d H:i:s', $getTransaction["result"]['blockTime']),
                                     
                                 ]);
-                                $this->info('address: ' . $getTransaction["result"]["transaction"]["message"]["accountKeys"][1]);
-                                $userAddressInfo = SolanaAddress::where('address', $getTransaction["result"]["transaction"]["message"]["accountKeys"][1])->first();
                                 SolanaDeposit::create([
                                     'address_id' => $userAddressInfo->id,
                                     'transaction_id' => $transaction->id,

@@ -7,73 +7,16 @@ namespace Hoangnh283\Solana\Services;
 use Exception;
 use Illuminate\Support\Facades\Log;
 
-use Attestto\SolanaPhpSdk\Connection;
-use Attestto\SolanaPhpSdk\SolanaRpcClient;
-use Attestto\SolanaPhpSdk\KeyPair;
-use Attestto\SolanaPhpSdk\PublicKey;
-use Attestto\SolanaPhpSdk\Programs\SystemProgram;
-use Attestto\SolanaPhpSdk\Transaction;
-use Attestto\SolanaPhpSdk\Programs\SplTokenProgram;
-use Attestto\SolanaPhpSdk\TransactionInstruction;
-use Attestto\SolanaPhpSdk\Util\Buffer;
-use Attestto\SolanaPhpSdk\Util\AccountMeta;
+use Tighten\SolanaPhpSdk\Connection;
+use Tighten\SolanaPhpSdk\SolanaRpcClient;
+use Tighten\SolanaPhpSdk\KeyPair;
+use Tighten\SolanaPhpSdk\PublicKey;
+use Tighten\SolanaPhpSdk\Programs\SystemProgram;
+use Tighten\SolanaPhpSdk\Transaction;
 class SolanaService
 {
     protected $lamports = 1000000000;
     protected $url = 'https://api.devnet.solana.com';
-    protected $randomKey;
-
-    public function __construct()
-    {
-        $this->randomKey = random_int(0, 99999999);
-    }
-
-    function base58_encode($string) {
-        $alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-        $base_count = strlen($alphabet);
-        $encoded = '';
-        $num = gmp_init(bin2hex($string), 16);
-
-        while (gmp_cmp($num, $base_count) >= 0) {
-            list($num, $rem) = gmp_div_qr($num, $base_count);
-            $encoded = $alphabet[gmp_intval($rem)] . $encoded;
-        }
-        $encoded = $alphabet[gmp_intval($num)] . $encoded;
-
-        return $encoded;
-    }
-
-    function base58_decode($input) {
-        $alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-        $base_count = strlen($alphabet);
-        $decoded = gmp_init('0');
-
-        for ($i = 0; $i < strlen($input); $i++) {
-            $decoded = gmp_add(gmp_mul($decoded, $base_count), strpos($alphabet, $input[$i]));
-        }
-
-        return hex2bin(gmp_strval($decoded, 16));
-    }
-
-    public function generateSolanaWallet() {
-        // Tạo cặp khóa mới (Public Key và Secret Key)
-        $keypair = sodium_crypto_sign_keypair();
-        
-        // Lấy Secret Key từ cặp khóa (privateKey + publicKey)
-        $secretKey = sodium_crypto_sign_secretkey($keypair);
-        $secretKeyArray = unpack('C*', $secretKey); // Chuyển đổi secretKey sang mảng byte (array of integers)
-
-        // Lấy Public Key từ cặp khóa
-        $publicKey = sodium_crypto_sign_publickey($keypair);
-        $privateKeyBase58 = $this->base58_encode($secretKey);
-        $publicKeyBase58 = $this->base58_encode($publicKey);
-        // Trả về khóa công khai và khóa bí mật
-        return [
-            'publicKey' => $publicKeyBase58,
-            'secretKey' => json_encode(array_values($secretKeyArray)),
-            'privateKeyBase58' => $privateKeyBase58,
-        ];
-    }
 
     public function createAddress(){
         // Tạo Keypair mới
@@ -118,121 +61,6 @@ class SolanaService
         $fee = $this->getFeeForMessage(base64_encode($serializedMessage));
         $txHash = $connection->sendTransaction($transaction, [$fromKeyPair]);
         return [$txHash, $fee];
-    }
-
-    public function transferSPL($fromSecretKey, $toAddress, $mintAddress, $amount){
-        try {
-            $client = new SolanaRpcClient(SolanaRpcClient::DEVNET_ENDPOINT);
-            $connection = new Connection($client);
-            $tokenProgramId = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-
-            $fromKeyPair = Keypair::fromSecretKey($fromSecretKey);
-            $fromPublicKey = $fromKeyPair->getPublicKey();
-            $toPublicKey = new PublicKey($toAddress);
-            $mintPublicKey = new PublicKey($mintAddress);
-
-            // Lấy tài khoản token của người gửi (payer)
-            $payerTokenAccount = $this->findAssociatedTokenAddress($fromPublicKey, $mintPublicKey);
-
-            // Lấy tài khoản token của người nhận
-            // $recipientTokenAccount = $this->findAssociatedTokenAddress($toPublicKey, $mintPublicKey);
-            $recipientTokenAccount =  new PublicKey($this->getOrCreateAssociatedTokenAccount($fromSecretKey, $toAddress, $mintAddress));
-            
-            // Tạo Transfer Instruction
-            $transferInstruction = new TransactionInstruction(
-                $tokenProgramId,
-                [
-                    new AccountMeta($payerTokenAccount, false, true),
-                    new AccountMeta($recipientTokenAccount, false, true),
-                    new AccountMeta($fromPublicKey, true, false)
-                ],
-                Buffer::from(array_merge([3], unpack('C*', pack('P', $amount * $this->lamports))))
-            );
-
-            $recentBlockhashResponse = $this->getLatestBlockhash();
-            $recentBlockhash = $recentBlockhashResponse;
-            $transaction = new Transaction();
-            $transaction->recentBlockhash = $recentBlockhash;
-            $transaction->feePayer = $fromPublicKey;
-            $transaction->add($transferInstruction);
-            $serializedMessage = $transaction->serializeMessage();
-            $fee = $this->getFeeForMessage(base64_encode($serializedMessage));
-            $txHash = $connection->sendTransaction($transaction, [$fromKeyPair]);
-            return [$txHash, $fee, $payerTokenAccount->toBase58(), $recipientTokenAccount->toBase58()];
-            return $txHash;
-        } catch (Exception $e) {
-            return false;
-            return "Lỗi: " . $e->getMessage();
-        }
-    }
-
-    private function findAssociatedTokenAddress(PublicKey $walletAddress, PublicKey $tokenMintAddress) {
-        $associatedTokenProgramId = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
-        $tokenProgramId = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-        
-        list($address, ) = PublicKey::findProgramAddress(
-            [
-                $walletAddress->toBytes(),
-                $tokenProgramId->toBytes(),
-                $tokenMintAddress->toBytes()
-            ],
-            $associatedTokenProgramId
-        );
-        
-        return $address;
-    }
-
-    public function getOrCreateAssociatedTokenAccount($payerSecretKey, $ownerAddress, $mintAddress) {
-        $client = new SolanaRpcClient(SolanaRpcClient::DEVNET_ENDPOINT);
-        $connection = new Connection($client);
-        // $systemProgramId = new PublicKey('11111111111111111111111111111111');
-        // $tokenProgramId = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
-        $payerKeyPair = Keypair::fromSecretKey($payerSecretKey);
-        $payer = $payerKeyPair->getPublicKey();
-        $mint = new PublicKey($mintAddress);
-        $owner = new PublicKey($ownerAddress);
-        $tokenAccount = $this->checkSPLTokenAddress($ownerAddress, $mintAddress);
-        if($tokenAccount){
-            return $tokenAccount;
-        }
-        $associatedTokenProgram = new SplTokenProgram($client);
-        $associatedTokenProgram->getOrCreateAssociatedTokenAccount($connection, $payer ,$mint, $owner);
-        return $this->checkSPLTokenAddress($ownerAddress, $mintAddress);
-    }
-
-    public function checkSPLTokenAddress($address, $mintAddress){
-        $client = new SolanaRpcClient(SolanaRpcClient::DEVNET_ENDPOINT);
-        $response = $client->call('getTokenAccountsByOwner', [
-            $address,
-            ['mint' => $mintAddress],
-            ['encoding' => 'jsonParsed']
-        ]);
-        if (!empty($response['value'])) {   
-            return $response['value'][0]['pubkey'];
-        }
-        return false;
-    }
-
-    public function getBalanceSPL($mintAddress, $address){
-        $client = new SolanaRpcClient(SolanaRpcClient::DEVNET_ENDPOINT);
-        $publicKey = new PublicKey($address);
-        // Tạo chương trình token SPL
-        $splTokenProgram = new SplTokenProgram($client);
-        $response = $splTokenProgram->getTokenAccountsByOwner($publicKey);
-        return $response;
-        $accounts = $response['result']['value'] ?? [];
-        
-        // Duyệt qua các tài khoản để tìm tài khoản Raydium
-        $balance = 0;
-        foreach ($accounts as $account) {
-            $accountData = $account['account']['data']['parsed']['info'];
-            
-            if ($accountData['mint'] === $mintAddress) {
-                $balance = $accountData['tokenAmount']['uiAmountString'];
-                break;
-            }
-        }
-        return $balance;
     }
 
     public function transactionHistory(){
@@ -611,37 +439,4 @@ class SolanaService
         return json_decode($response, true);
     }
     
-    function getTokensByWallet($walletAddress) {
-        // Payload cho yêu cầu RPC
-        $data = [
-            "jsonrpc" => "2.0",
-            "id" => 1,
-            "method" => "getTokenAccountsByOwner",
-            "params" => [
-                $walletAddress,
-                [
-                    "programId" => "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-                ],
-                [
-                    "encoding" => "jsonParsed"
-                ]
-            ]
-        ];
-    
-        // Sử dụng cURL để gửi yêu cầu
-        $ch = curl_init($this->url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Content-Type: application/json',
-        ]);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-    
-        $response = curl_exec($ch);
-        if (curl_errno($ch)) {
-            echo 'Lỗi cURL: ' . curl_error($ch);
-        }
-        curl_close($ch);
-        return json_decode($response, true);
-    }
 }
