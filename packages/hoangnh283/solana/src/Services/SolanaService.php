@@ -122,6 +122,7 @@ class SolanaService
 
     public function transferSPL($fromSecretKey, $toAddress, $mintAddress, $amount){
         try {
+
             $client = new SolanaRpcClient(SolanaRpcClient::DEVNET_ENDPOINT);
             $connection = new Connection($client);
             $tokenProgramId = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
@@ -137,7 +138,6 @@ class SolanaService
             // Lấy tài khoản token của người nhận
             // $recipientTokenAccount = $this->findAssociatedTokenAddress($toPublicKey, $mintPublicKey);
             $recipientTokenAccount =  new PublicKey($this->getOrCreateAssociatedTokenAccount($toAddress, $fromSecretKey, $mintAddress));
-            
             // Tạo Transfer Instruction
             $transferInstruction = new TransactionInstruction(
                 $tokenProgramId,
@@ -188,7 +188,7 @@ class SolanaService
         // $systemProgramId = new PublicKey('11111111111111111111111111111111');
         // $tokenProgramId = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
         $payerKeyPair = Keypair::fromSecretKey($payerSecretKey);
-        $payer = $payerKeyPair->getPublicKey();
+        // $payer = $payerKeyPair->getPublicKey();
         $mint = new PublicKey($mintAddress);
         $owner = new PublicKey($ownerAddress);
         $tokenAccount = $this->checkSPLTokenAddress($ownerAddress, $mintAddress);
@@ -196,7 +196,21 @@ class SolanaService
             return $tokenAccount;
         }
         $associatedTokenProgram = new SplTokenProgram($client);
-        $associatedTokenProgram->getOrCreateAssociatedTokenAccount($connection, $payer ,$mint, $owner);
+        // $associatedTokenProgram->getOrCreateAssociatedTokenAccount($connection, $payer ,$mint, $owner);
+        $attempt = 0;
+        while (true) {
+            try {
+                $associatedTokenProgram->getOrCreateAssociatedTokenAccount($connection, $payerKeyPair, $mint, $owner);
+                break; 
+            } catch (Exception $e) {
+                if (++$attempt >= 10) {
+                    echo "Không thể tạo Associated Token Account sau nhiều lần thử!";
+                    break;
+                }
+                sleep(2); 
+            }
+        }
+
         return $this->checkSPLTokenAddress($ownerAddress, $mintAddress);
     }
 

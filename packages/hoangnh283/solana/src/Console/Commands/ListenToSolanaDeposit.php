@@ -83,6 +83,15 @@ class ListenToSolanaDeposit extends Command
                                     $this->info('address: ' . $getTransaction["result"]['meta']['postTokenBalances'][0]['owner']);
                                     $userAddressInfo = SolanaAddress::where('address', $getTransaction["result"]['meta']['postTokenBalances'][0]['owner'])->first();
                                     $postBalances = $getTransaction["result"]['meta']['postTokenBalances'][0]['uiTokenAmount']['amount'] / $lamports;
+                                    $confirmed = false;
+                                    while (!$confirmed) {
+                                        if (count($getTransaction["result"]['meta']['preTokenBalances'])>0) {
+                                            $confirmed = true;
+                                        } else {
+                                            sleep(2); // Chờ 2 giây trước khi thử lại
+                                            $getTransaction = $SolanaService->getTransaction($data["params"]["result"]['value']['signature']);
+                                        }
+                                    }
                                     $preBalances = $getTransaction["result"]['meta']['preTokenBalances'][0]['uiTokenAmount']['amount'] / $lamports;
                                     $meta = $getTransaction["result"]['meta'];
                                     foreach ($meta['postTokenBalances'] as $index => $postBalance) {
