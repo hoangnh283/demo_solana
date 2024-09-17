@@ -102,7 +102,7 @@ class ListenToSolanaDeposit extends Command
                                 }
                                 $this->info('from address: ' . $fromAddress);
                                 $this->info('to address: ' . $toAddress);
-                                $amount = $postBalances - $preBalances;
+                                $amount = abs($postBalances - $preBalances);
                                 $fee = $getTransaction["result"]["meta"]["fee"] / $lamports;
                                 
                                 $transaction = SolanaTransaction::create([

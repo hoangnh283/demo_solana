@@ -136,7 +136,7 @@ class SolanaService
 
             // Lấy tài khoản token của người nhận
             // $recipientTokenAccount = $this->findAssociatedTokenAddress($toPublicKey, $mintPublicKey);
-            $recipientTokenAccount =  new PublicKey($this->getOrCreateAssociatedTokenAccount($fromSecretKey, $toAddress, $mintAddress));
+            $recipientTokenAccount =  new PublicKey($this->getOrCreateAssociatedTokenAccount($toAddress, $fromSecretKey, $mintAddress));
             
             // Tạo Transfer Instruction
             $transferInstruction = new TransactionInstruction(
@@ -182,7 +182,7 @@ class SolanaService
         return $address;
     }
 
-    public function getOrCreateAssociatedTokenAccount($payerSecretKey, $ownerAddress, $mintAddress) {
+    public function getOrCreateAssociatedTokenAccount($ownerAddress, $payerSecretKey = [242,68,92,173,86,8,228,143,78,61,44,176,201,89,177,232,250,214,218,224,89,114,138,96,127,118,102,86,216,55,3,72,109,216,172,177,145,52,205,136,164,110,27,207,135,70,168,213,236,84,153,189,251,5,156,217,204,7,142,253,122,89,231,165],  $mintAddress = '8fanmtHCJMcCPWc95bQPS1ZwPN8jjjsHBDjL6LJ4Z1wJ') {
         $client = new SolanaRpcClient(SolanaRpcClient::DEVNET_ENDPOINT);
         $connection = new Connection($client);
         // $systemProgramId = new PublicKey('11111111111111111111111111111111');

@@ -176,9 +176,8 @@ class SolController extends Controller
         // $tokenSPL = json_decode($tokenSPL->getBody()->getContents(), true);
         $payerSecretKey = [242,68,92,173,86,8,228,143,78,61,44,176,201,89,177,232,250,214,218,224,89,114,138,96,127,118,102,86,216,55,3,72,109,216,172,177,145,52,205,136,164,110,27,207,135,70,168,213,236,84,153,189,251,5,156,217,204,7,142,253,122,89,231,165];
 
-        $tokenSPL =$solanaService->getOrCreateAssociatedTokenAccount($payerSecretKey, $address, '8fanmtHCJMcCPWc95bQPS1ZwPN8jjjsHBDjL6LJ4Z1wJ');
-// var_dump($tokenSPL);die;
-
+        // $tokenSPL =$solanaService->getOrCreateAssociatedTokenAccount( $address,$payerSecretKey, '8fanmtHCJMcCPWc95bQPS1ZwPN8jjjsHBDjL6LJ4Z1wJ');
+        $tokenSPL = $solanaService->checkSPLTokenAddress($address, '8fanmtHCJMcCPWc95bQPS1ZwPN8jjjsHBDjL6LJ4Z1wJ');
         // $history = SolanaTransaction::where('address', $address)->get();
         $history = SolanaTransaction::where(function($query) use ($address, $tokenSPL) {
             $query->where('type', 'withdraw')
@@ -186,14 +185,17 @@ class SolController extends Controller
         })->orWhere(function($query) use ($address) {
             $query->where('type', 'deposit')
                   ->where('to_address', $address);
-        })->orWhere(function($query) use ($tokenSPL) {
-            $query->where('type', 'withdraw')
-                  ->where('from_address', $tokenSPL);
-        })->orWhere(function($query) use ($tokenSPL) {
-            $query->where('type', 'deposit')
-                  ->where('to_address', $tokenSPL);
-        })
-        ->get();
+        });
+        if($tokenSPL){
+            $history = $history->orWhere(function($query) use ($tokenSPL) {
+                $query->where('type', 'withdraw')
+                      ->where('from_address', $tokenSPL);
+            })->orWhere(function($query) use ($tokenSPL) {
+                $query->where('type', 'deposit')
+                      ->where('to_address', $tokenSPL);
+            });
+        }
+        $history = $history->get();
         // Xử lý dữ liệu sau khi truy vấn
         foreach ($history as &$transaction) {
             // Nếu là địa chỉ gốc $address thì thêm "SOL" vào amount
