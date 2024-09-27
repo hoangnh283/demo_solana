@@ -17,5 +17,7 @@
             "email": "chimnhokhonglo@gmail.com"
         }
     ],
-    "require": {}
+    "require": {
+        "attestto/solana-php-sdk": "dev-master"
+    }
 }

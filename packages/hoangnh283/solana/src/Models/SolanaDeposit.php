@@ -11,7 +11,7 @@ class SolanaDeposit extends Model
 
     protected $table = 'wallets_solana_deposit';
 
-    protected $fillable = ['address_id', 'amount', 'transaction_id'];
+    protected $fillable = ['address_id', 'amount', 'currency',  'transaction_id'];
 
     public function address()
     {

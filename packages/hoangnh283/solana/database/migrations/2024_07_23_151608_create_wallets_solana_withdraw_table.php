@@ -17,6 +17,7 @@ class CreateWalletsSolanaWithdrawTable extends Migration
             $table->unsignedBigInteger('transaction_id')->nullable();
             $table->foreign('transaction_id')->references('id')->on('wallets_solana_transactions');
             $table->decimal('amount', 20, 8);
+            $table->string('currency')->nullable();
             $table->timestamps();
         });
     }

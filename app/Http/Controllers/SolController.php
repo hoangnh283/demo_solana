@@ -152,6 +152,7 @@ class SolController extends Controller
             SolanaWithdraw::create([
                 'address_id' => $userSolanaInfo->value('id'),
                 'transaction_id' => $transaction->id,
+                'currency' => $token,
                 'amount' => $amount,
             ]);
             return response()->json(['success' => true,'transaction' => $transaction, 'user_id'=> $current_user->id]);

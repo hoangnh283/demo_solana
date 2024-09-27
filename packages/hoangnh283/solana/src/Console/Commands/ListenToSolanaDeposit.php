@@ -77,10 +77,14 @@ class ListenToSolanaDeposit extends Command
                             sleep(5);
                             $SolanaService = new SolanaService;
                             $getTransaction = $SolanaService->getTransaction($data["params"]["result"]['value']['signature']);
+                            $currency = '';
                             if(!empty($getTransaction["result"])){
                                 $lamports = 1000000000;
                                 if(count($getTransaction["result"]['meta']['postTokenBalances']) > 0){
                                     $this->info('address: ' . $getTransaction["result"]['meta']['postTokenBalances'][0]['owner']);
+                                    if($getTransaction["result"]['meta']['postTokenBalances'][0]['mint'] == '8fanmtHCJMcCPWc95bQPS1ZwPN8jjjsHBDjL6LJ4Z1wJ'){
+                                        $currency = 'Unknown Token';
+                                    }
                                     $userAddressInfo = SolanaAddress::where('address', $getTransaction["result"]['meta']['postTokenBalances'][0]['owner'])->first();
                                     $postBalances = $getTransaction["result"]['meta']['postTokenBalances'][0]['uiTokenAmount']['amount'] / $lamports;
                                     $confirmed = false;
@@ -108,6 +112,7 @@ class ListenToSolanaDeposit extends Command
                                     $preBalances = $getTransaction["result"]["meta"]["preBalances"][1] / $lamports;
                                     $fromAddress = $getTransaction["result"]["transaction"]["message"]["accountKeys"][0];
                                     $toAddress = $getTransaction["result"]["transaction"]["message"]["accountKeys"][1];
+                                    $currency = 'SOL';
                                 }
                                 $this->info('from address: ' . $fromAddress);
                                 $this->info('to address: ' . $toAddress);
@@ -128,6 +133,7 @@ class ListenToSolanaDeposit extends Command
                                 SolanaDeposit::create([
                                     'address_id' => $userAddressInfo->id,
                                     'transaction_id' => $transaction->id,
+                                    'currency' => $currency,
                                     'amount' => $amount,
                                 ]);
                             }
